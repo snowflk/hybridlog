@@ -1,8 +1,8 @@
 # HybridLog
 HybridLog is an Golang implementation of an append-only file with concurrent reads/writes support and durability guarantee. 
 
-HybridLog writes as fast as `os.File.Write` with `O_APPEND` flag, but performs read ~20x faster than `os.File.ReadAt` on 512b-blocks, ~10x faster on 4KB-blocks
-and ~1.2x faster on 1M-blocks.
+HybridLog writes as fast as `os.File.Write` with `O_APPEND` flag, but performs read ~20x faster than `os.File.ReadAt` on 512B-blocks, ~10x faster on 4KB-blocks
+and ~1.2x faster on 1MB-blocks.
 
 ## Getting Started
 ### Installation
