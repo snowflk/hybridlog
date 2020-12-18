@@ -20,11 +20,11 @@ var (
 	osPageSize = os.Getpagesize()
 )
 
-// SimpleHybridLog represents an append-only file that supports extremely fast read / write operations.
-// A SimpleHybridLog reads data from memory most of the time, and directly from disk if re-mapping is in progress.
+// simpleHybridLog represents an append-only file that supports extremely fast read / write operations.
+// A simpleHybridLog reads data from memory most of the time, and directly from disk if re-mapping is in progress.
 // New data will be written into both disk and memory (into a buffer). If the data in the buffer exceed a defined
 // high water mark, a re-mapping process will be performed. This task is done by a worker goroutine.
-type SimpleHybridLog struct {
+type simpleHybridLog struct {
 	mu        sync.RWMutex
 	remapLock sync.RWMutex
 
@@ -49,7 +49,7 @@ type SimpleHybridLog struct {
 	prevCkptPos int64
 }
 
-func open(opts Config) (*SimpleHybridLog, error) {
+func open(opts Config) (*simpleHybridLog, error) {
 	if opts.Path == "" {
 		return nil, errors.New("stage path cannot be empty")
 	}
@@ -75,7 +75,7 @@ func open(opts Config) (*SimpleHybridLog, error) {
 		return nil, err
 	}
 
-	l := &SimpleHybridLog{
+	l := &simpleHybridLog{
 		opts:        opts,
 		f:           file,
 		remapQueue:  make(chan interface{}, remapQueueCapacity),
@@ -102,7 +102,7 @@ func open(opts Config) (*SimpleHybridLog, error) {
 
 // recoverFromFile scans the file and rehydrates the last state.
 // This function also detects corrupted write operation (caused by system failure) and removes it.
-func (l *SimpleHybridLog) recoverFromFile() error {
+func (l *simpleHybridLog) recoverFromFile() error {
 	info, err := os.Stat(l.opts.Path)
 	if err != nil {
 		return errors.Wrap(err, "failed to stat file")
@@ -158,12 +158,11 @@ func (l *SimpleHybridLog) recoverFromFile() error {
 // ReadAt performs read and returns the requested data and its length.
 // Params:
 // - b: the target byte slice to copy the data into. ReadAt will try to fill this byte slice entirely. If the
-// 		requested range is invalid. it will be clipped, and the byte slice is not filled entirely.
+// requested range is invalid. it will be clipped, and the byte slice is not filled entirely.
 // - fromPos: the starting position to read the data.
-//
 // A hybrid stage file contains multiple checkpoints in between, therefore it ends up having fragments of data.
 // This function reads only the fragments and concatenate them, leaving the checkpoint unread.
-func (l *SimpleHybridLog) ReadAt(b []byte, fromPos int64) (int, error) {
+func (l *simpleHybridLog) ReadAt(b []byte, fromPos int64) (int, error) {
 	n := int64(0)
 	dStart := int64(0)
 	rStart := int64(0)
@@ -224,7 +223,7 @@ func (l *SimpleHybridLog) ReadAt(b []byte, fromPos int64) (int, error) {
 // Note: This function must ONLY be used for reading data between two checkpoints, hence the name "readFragment".
 // In fact, this should only be called by ReadAt.
 // This function also assumes that you are reading in a valid range
-func (l *SimpleHybridLog) readFragment(b []byte, fromRealPos int64) error {
+func (l *simpleHybridLog) readFragment(b []byte, fromRealPos int64) error {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -255,7 +254,7 @@ func (l *SimpleHybridLog) readFragment(b []byte, fromRealPos int64) error {
 // If a system failure occurs while writing and causes the program to suddenly stop,
 // only that write data are affected. When the program starts again, it will automatically recoverFromFile from failure
 // and remove the last corrupted write by invoking the function recoverFromFile
-func (l *SimpleHybridLog) Write(data []byte) (int, error) {
+func (l *simpleHybridLog) Write(data []byte) (int, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -293,11 +292,11 @@ func (l *SimpleHybridLog) Write(data []byte) (int, error) {
 	return int(dataSize), nil
 }
 
-func (l *SimpleHybridLog) Size() int64 {
+func (l *simpleHybridLog) Size() int64 {
 	return l.pos
 }
 
-func (l *SimpleHybridLog) requestRemap() {
+func (l *simpleHybridLog) requestRemap() {
 	l.remapQueue <- nil
 
 	l.remapLock.Lock()
@@ -305,12 +304,12 @@ func (l *SimpleHybridLog) requestRemap() {
 	l.remapLock.Unlock()
 }
 
-func (l *SimpleHybridLog) isRemapping() bool {
+func (l *simpleHybridLog) isRemapping() bool {
 	l.remapLock.RLock()
 	defer l.remapLock.RUnlock()
 	return l.remapping
 }
-func (l *SimpleHybridLog) mmap() error {
+func (l *simpleHybridLog) mmap() error {
 	info, err := l.f.Stat()
 	if err != nil {
 		return err
@@ -333,7 +332,7 @@ func (l *SimpleHybridLog) mmap() error {
 	return nil
 }
 
-func (l *SimpleHybridLog) munmap() error {
+func (l *simpleHybridLog) munmap() error {
 	// Ignore the unmap if we have no mapped data.
 	if l.dataref == nil {
 		return nil
@@ -346,7 +345,7 @@ func (l *SimpleHybridLog) munmap() error {
 	return err
 }
 
-func (l *SimpleHybridLog) Close() error {
+func (l *simpleHybridLog) Close() error {
 	// Signal the worker to stop remapping
 	l.stopChan <- nil
 
@@ -361,7 +360,7 @@ func (l *SimpleHybridLog) Close() error {
 	return l.f.Close()
 }
 
-func (l *SimpleHybridLog) startRemappingWorker() {
+func (l *simpleHybridLog) startRemappingWorker() {
 	go func() {
 		for {
 			select {
@@ -388,7 +387,7 @@ func (l *SimpleHybridLog) startRemappingWorker() {
 	}()
 }
 
-func (l *SimpleHybridLog) startSyncWorker() {
+func (l *simpleHybridLog) startSyncWorker() {
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
 		for {

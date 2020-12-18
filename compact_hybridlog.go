@@ -20,17 +20,17 @@ const (
 	defaultCompactionChunkSize    = 10 * 1024 * 1024 // 10MB chunk
 )
 
-type CompactHybridLog struct {
+type compactHybridLog struct {
 	wLock   sync.Mutex
 	mu      sync.RWMutex
 	opts    Config
-	stage   *SimpleHybridLog
-	reserve *SimpleHybridLog
+	stage   *simpleHybridLog
+	reserve *simpleHybridLog
 
 	stopChan chan interface{}
 }
 
-func withCompactor(log *SimpleHybridLog, config Config) (*CompactHybridLog, error) {
+func withCompactor(log *simpleHybridLog, config Config) (*compactHybridLog, error) {
 	// Default configurations
 	if config.CompactionMode == TimeBased {
 		if config.CompactAfter == 0 {
@@ -51,7 +51,7 @@ func withCompactor(log *SimpleHybridLog, config Config) (*CompactHybridLog, erro
 		config.CompactionChunkSize = defaultCompactionChunkSize
 	}
 
-	clog := &CompactHybridLog{
+	clog := &compactHybridLog{
 		opts:     config,
 		stage:    log,
 		stopChan: make(chan interface{}),
@@ -61,7 +61,7 @@ func withCompactor(log *SimpleHybridLog, config Config) (*CompactHybridLog, erro
 	return clog, nil
 }
 
-func (c *CompactHybridLog) startAutoCompaction() {
+func (c *compactHybridLog) startAutoCompaction() {
 	if c.opts.CompactionMode == TimeBased {
 		ticker := time.NewTicker(time.Duration(c.opts.CompactAfter) * time.Second)
 		go func() {
@@ -93,7 +93,7 @@ func (c *CompactHybridLog) startAutoCompaction() {
 	}
 }
 
-func (c *CompactHybridLog) compact() {
+func (c *compactHybridLog) compact() {
 	log.Debug("Compaction started")
 	var err error
 
@@ -171,34 +171,34 @@ func (c *CompactHybridLog) compact() {
 	log.Debug("Compaction completed")
 }
 
-func (c *CompactHybridLog) stageFilePath() string {
+func (c *compactHybridLog) stageFilePath() string {
 	path, _ := filepath.Abs(c.opts.Path)
 	return path
 }
 
-func (c *CompactHybridLog) reserveFilePath() string {
+func (c *compactHybridLog) reserveFilePath() string {
 	return c.stageFilePath() + ".compact"
 }
 
-func (c *CompactHybridLog) Write(p []byte) (int, error) {
+func (c *compactHybridLog) Write(p []byte) (int, error) {
 	c.wLock.Lock()
 	defer c.wLock.Unlock()
 	return c.stage.Write(p)
 }
 
-func (c *CompactHybridLog) ReadAt(b []byte, off int64) (int, error) {
+func (c *compactHybridLog) ReadAt(b []byte, off int64) (int, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.stage.ReadAt(b, off)
 }
 
-func (c *CompactHybridLog) Size() int64 {
+func (c *compactHybridLog) Size() int64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.stage.Size()
 }
 
-func (c *CompactHybridLog) Close() error {
+func (c *compactHybridLog) Close() error {
 	c.stopChan <- nil
 	return c.stage.Close()
 }
