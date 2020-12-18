@@ -136,3 +136,6 @@ BenchmarkFile_Read_128KB-8         	  182815	      6725 ns/op
 BenchmarkFile_Read_1MB
 BenchmarkFile_Read_1MB-8           	   18992	     60004 ns/op
 ```
+
+## Credits
+Code for working with mmap and system calls mostly inspired by BoltDB's implementation https://github.com/etcd-io/bbolt
